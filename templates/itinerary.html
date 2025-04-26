@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Trip Itinerary</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding-top: 2rem;
+        }
+        .itinerary-card {
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            transition: transform 0.3s ease;
+        }
+        .itinerary-card:hover {
+            transform: translateY(-5px);
+        }
+        .day-section {
+            border-left: 4px solid #0d6efd;
+            padding-left: 1rem;
+            margin-bottom: 2rem;
+        }
+        .activity-item {
+            background-color: #e9ecef;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            margin: 0.25rem;
+            display: inline-block;
+        }
+        .back-button {
+            margin-bottom: 2rem;
+        }
+        #loading {
+            text-align: center;
+            padding: 2rem;
+        }
+        .itinerary-content {
+            white-space: pre-line;
+        }
+        .itinerary-day {
+            background-color: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .itinerary-day h3 {
+            color: #0d6efd;
+            margin-bottom: 1rem;
+        }
+        .itinerary-section {
+            margin-bottom: 1rem;
+        }
+        .itinerary-section h4 {
+            color: #495057;
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+        .satisfaction-section {
+            margin-top: 2rem;
+            padding: 2rem;
+            background-color: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .destination-checkbox {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+        .destination-checkbox:hover {
+            background-color: #f8f9fa;
+            border-color: #0d6efd;
+        }
+        .destination-checkbox input[type="checkbox"] {
+            margin-right: 1rem;
+            transform: scale(1.2);
+        }
+        .hotel-card {
+            margin-bottom: 1rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .hotel-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <button class="btn btn-outline-primary back-button" onclick="window.history.back()">
+            ← Back to Selection
+        </button>
+        
+        <div id="loading" class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Creating your personalized itinerary...</p>
+        </div>
+
+        <div id="itinerary" style="display: none;">
+            <h2 class="text-center mb-4">Your Trip Itinerary(ies)</h2>
+            <div id="trip-summary" class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Trip Summary</h5>
+                    <div id="summary-content"></div>
+                </div>
+            </div>
+            <div id="itineraries-container"></div>
+        </div>
+
+        <div id="satisfaction-section" class="satisfaction-section" style="display: none;">
+            <h3 class="mb-4">Are you happy with the itinerary?</h3>
+            <div id="destination-checkboxes"></div>
+            <div class="text-center mt-4">
+                <button id="check-hotels-btn" class="btn btn-primary btn-lg">Check Hotel Availability</button>
+            </div>
+        </div>
+
+        <div id="hotels-section" class="mt-4" style="display: none;">
+            <h3 class="text-center mb-4">Available Hotels</h3>
+            <div id="hotels-container"></div>
+        </div>
+
+        <div id="error" class="alert alert-danger" style="display: none;"></div>
+    </div>
+
+    <script>
+        function formatItinerary(text) {
+            // Remove markdown code blocks
+            text = text.replace(/```html/g, '').replace(/```/g, '');
+            
+            // Split into days
+            const days = text.split(/(?=Day \d+)/);
+            
+            let html = '';
+            days.forEach(day => {
+                if (day.trim()) {
+                    // Create day section
+                    const dayHtml = `
+                        <div class="itinerary-day">
+                            ${day.trim().split('\n').map(line => {
+                                if (line.startsWith('Day')) {
+                                    return `<h3>${line}</h3>`;
+                                } else if (line.trim() && !line.startsWith('```')) {
+                                    return `<div class="itinerary-section">${line}</div>`;
+                                }
+                                return '';
+                            }).join('')}
+                        </div>
+                    `;
+                    html += dayHtml;
+                }
+            });
+            
+            return html;
+        }
+
+        function extractLocations(itineraryText) {
+            const locations = new Set();
+            const lines = itineraryText.split('\n');
+            
+            lines.forEach(line => {
+                if (line.toLowerCase().includes('stay') || 
+                    line.toLowerCase().includes('accommodation') ||
+                    line.toLowerCase().includes('hotel')) {
+                    // Extract location name (assuming it's after "in" or "at")
+                    const locationMatch = line.match(/in\s+([^,.]+)|at\s+([^,.]+)/i);
+                    if (locationMatch) {
+                        const location = (locationMatch[1] || locationMatch[2]).trim();
+                        locations.add(location);
+                    }
+                }
+            });
+            
+            return Array.from(locations);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const loading = document.getElementById('loading');
+            const itinerary = document.getElementById('itinerary');
+            const error = document.getElementById('error');
+            const summaryContent = document.getElementById('summary-content');
+            const itinerariesContainer = document.getElementById('itineraries-container');
+
+            const planningData = JSON.parse(sessionStorage.getItem('planningData'));
+            
+            if (!planningData) {
+                loading.style.display = 'none';
+                error.style.display = 'block';
+                error.textContent = 'No trip data found. Please go back and select your preferences.';
+                return;
+            }
+
+            console.log('Retrieved planning data:', planningData);
+
+            // Display trip summary
+            summaryContent.innerHTML = `
+                <p><strong>Destinations:</strong> ${planningData.selectedDestinations.map(d => d.location).join(', ')}</p>
+                <p><strong>Travel Dates:</strong> ${planningData.startDate} to ${planningData.endDate}</p>
+                <p><strong>Preferences:</strong> ${planningData.preferences || 'None specified'}</p>
+            `;
+
+            // Call the API to generate itinerary
+            console.log('Sending request to generate itinerary...');
+            fetch('/api/generate-itinerary', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(planningData)
+            })
+            .then(response => {
+                console.log('Received response:', response);
+                return response.json();
+            })
+            .then(data => {
+                console.log('Received data:', data);
+                loading.style.display = 'none';
+                if (data.status === 'success') {
+                    itinerary.style.display = 'block';
+                    
+                    // Display each itinerary
+                    Object.entries(data.itineraries).forEach(([location, itineraryText]) => {
+                        const itineraryCard = document.createElement('div');
+                        itineraryCard.className = 'card mb-4 itinerary-card';
+                        itineraryCard.innerHTML = `
+                            <div class="card-header">
+                                <h3 class="mb-0">${location}</h3>
+                            </div>
+                            <div class="card-body">
+                                ${formatItinerary(itineraryText)}
+                            </div>
+                        `;
+                        itinerariesContainer.appendChild(itineraryCard);
+                    });
+                    
+                    // Show satisfaction section
+                    const satisfactionSection = document.getElementById('satisfaction-section');
+                    const destinationCheckboxes = document.getElementById('destination-checkboxes');
+                    
+                    // Extract locations from all itineraries
+                    const allLocations = new Set();
+                    Object.values(data.itineraries).forEach(itineraryText => {
+                        const locations = extractLocations(itineraryText);
+                        locations.forEach(loc => allLocations.add(loc));
+                    });
+                    
+                    if (allLocations.size > 0) {
+                        satisfactionSection.style.display = 'block';
+                        
+                        // Create checkboxes for each location
+                        Array.from(allLocations).forEach((location, index) => {
+                            const checkboxDiv = document.createElement('div');
+                            checkboxDiv.className = 'destination-checkbox';
+                            checkboxDiv.innerHTML = `
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="location-${index}" name="location">
+                                    <label class="form-check-label" for="location-${index}">
+                                        ${location}
+                                    </label>
+                                </div>
+                            `;
+                            destinationCheckboxes.appendChild(checkboxDiv);
+                        });
+                    }
+                } else {
+                    error.style.display = 'block';
+                    error.textContent = 'Error generating itinerary: ' + data.message;
+                }
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                loading.style.display = 'none';
+                error.style.display = 'block';
+                error.textContent = 'Error generating itinerary: ' + err.message;
+            });
+
+            // Add event listener for the check hotels button
+            document.getElementById('check-hotels-btn').addEventListener('click', function() {
+                const selectedLocations = Array.from(document.querySelectorAll('input[name="location"]:checked'))
+                    .map(checkbox => checkbox.nextElementSibling.textContent.trim());
+                
+                if (selectedLocations.length === 0) {
+                    alert('Please select at least one location');
+                    return;
+                }
+
+                // Store selected locations in session storage
+                sessionStorage.setItem('selectedLocations', JSON.stringify(selectedLocations));
+                
+                // Redirect to hotels page
+                window.location.href = '/hotels';
+            });
+        });
+    </script>
+</body>
+</html> 

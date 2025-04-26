@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Travel Suggestions</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding-top: 2rem;
+        }
+        .suggestion-card {
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            transition: transform 0.3s ease;
+        }
+        .suggestion-card:hover {
+            transform: translateY(-5px);
+        }
+        .card-header {
+            background-color: #0d6efd;
+            color: white;
+            border-radius: 15px 15px 0 0 !important;
+        }
+        .highlight-item {
+            background-color: #e9ecef;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            margin: 0.25rem;
+            display: inline-block;
+        }
+        .back-button {
+            margin-bottom: 2rem;
+        }
+        .checkbox-option {
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+        }
+        .checkbox-option:hover {
+            background-color: #f8f9fa;
+            border-color: #0d6efd;
+        }
+        .checkbox-option input[type="checkbox"] {
+            margin-right: 1rem;
+            transform: scale(1.2);
+        }
+        .checkbox-highlights {
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+        .selection-section {
+            margin-top: 2rem;
+            padding: 2rem;
+            background-color: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .interest-options {
+            margin-top: 2rem;
+            padding: 2rem;
+            background-color: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .interest-option {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+        .interest-option:hover {
+            background-color: #f8f9fa;
+            border-color: #0d6efd;
+        }
+        .interest-option input[type="radio"] {
+            margin-right: 1rem;
+            transform: scale(1.2);
+        }
+        .date-selection {
+            margin-top: 1rem;
+            padding: 1rem;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+        }
+        .date-selection input[type="date"] {
+            padding: 0.5rem;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <button class="btn btn-outline-primary back-button" onclick="window.history.back()">
+            ← Back to Search
+        </button>
+        
+        <div id="loading" class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Finding the perfect destinations for you...</p>
+        </div>
+
+        <div id="results" style="display: none;">
+            <h2 class="text-center mb-4">Suggested Destinations</h2>
+            <div id="suggestions-container"></div>
+            <div id="interest-container" class="interest-options">
+                <h3 class="mb-4">Do any of these places interest you?</h3>
+                <div class="interest-option">
+                    <input type="radio" id="yes-option" name="interest" value="yes">
+                    <label for="yes-option">Yes, let's go to the next stage of planning</label>
+                </div>
+                <div class="interest-option">
+                    <input type="radio" id="no-option" name="interest" value="no">
+                    <label for="no-option">No, keep searching</label>
+                </div>
+            </div>
+            <div id="selection-container" class="selection-section hidden">
+                <h3 class="mb-4">Let's plan your trip!</h3>
+                <div class="date-selection mb-4">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label for="start-date" class="form-label">Start Date:</label>
+                            <input type="date" id="start-date" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="end-date" class="form-label">End Date:</label>
+                            <input type="date" id="end-date" class="form-control">
+                        </div>
+                    </div>
+                </div>
+                <div class="preferences-section mb-4">
+                    <label for="preferences" class="form-label">Additional Preferences:</label>
+                    <textarea id="preferences" class="form-control" rows="3" 
+                        placeholder="E.g., Plan a trip for a family of 4 including 2 parents of age above 60 and 2 daughters."></textarea>
+                </div>
+                <h4>Select Your Preferred Destination(s)</h4>
+                <div id="checkbox-container"></div>
+                <div class="text-center mt-4">
+                    <button id="plan-button" class="btn btn-primary btn-lg">Let's get planning!</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="error" class="alert alert-danger" style="display: none;"></div>
+    </div>
+
+    <script>
+        // Get suggestions from session storage
+        document.addEventListener('DOMContentLoaded', function() {
+            const suggestions = JSON.parse(sessionStorage.getItem('suggestions'));
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            const error = document.getElementById('error');
+
+            if (suggestions && !suggestions.error) {
+                loading.style.display = 'none';
+                results.style.display = 'block';
+                displaySuggestions(suggestions);
+            } else {
+                loading.style.display = 'none';
+                error.style.display = 'block';
+                error.textContent = suggestions?.error || 'An error occurred while processing your request.';
+            }
+        });
+
+        function displaySuggestions(suggestions) {
+            const container = document.getElementById('suggestions-container');
+            const checkboxContainer = document.getElementById('checkbox-container');
+            
+            // Display summary if available
+            if (suggestions.summary) {
+                const summaryCard = document.createElement('div');
+                summaryCard.className = 'card mb-4';
+                summaryCard.innerHTML = `
+                    <div class="card-body">
+                        <h5 class="card-title">Here is the Summary. Please select your preferred destination(s) at the bottom.</h5>
+                        <p class="card-text">${suggestions.summary}</p>
+                    </div>
+                `;
+                container.appendChild(summaryCard);
+            }
+
+            // Display each suggestion
+            suggestions.suggestions.forEach((suggestion, index) => {
+                // Create suggestion card
+                const card = document.createElement('div');
+                card.className = 'card suggestion-card';
+                card.innerHTML = `
+                    <div class="card-header">
+                        <h3 class="mb-0">${suggestion.location}</h3>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">${suggestion.description}</p>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <p><strong>Travel Time:</strong> ${suggestion.travel_time}</p>
+                                <p><strong>Best Season:</strong> ${suggestion.best_season}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Estimated Cost:</strong> ${suggestion.estimated_cost}</p>
+                            </div>
+                        </div>
+                        <h5>Highlights:</h5>
+                        <div class="highlights-container">
+                            ${suggestion.highlights.map(highlight => 
+                                `<span class="highlight-item">${highlight}</span>`
+                            ).join('')}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+
+                // Create checkbox option for the selection container
+                const checkboxOption = document.createElement('div');
+                checkboxOption.className = 'checkbox-option';
+                checkboxOption.innerHTML = `
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="option-${index}" name="destination">
+                        <label class="form-check-label" for="option-${index}">
+                            <strong>${suggestion.location}</strong> - ${suggestion.estimated_cost}
+                            <div class="checkbox-highlights">
+                                Highlights: ${suggestion.highlights.join(', ')}
+                            </div>
+                        </label>
+                    </div>
+                `;
+                checkboxContainer.appendChild(checkboxOption);
+            });
+
+            // Add event listeners for the interest options
+            const interestOptions = document.querySelectorAll('input[name="interest"]');
+            const selectionContainer = document.getElementById('selection-container');
+            
+            interestOptions.forEach(option => {
+                option.addEventListener('change', function() {
+                    if (this.value === 'yes') {
+                        selectionContainer.classList.remove('hidden');
+                    } else {
+                        selectionContainer.classList.add('hidden');
+                    }
+                });
+            });
+
+            // Add event listener for the plan button
+            document.getElementById('plan-button').addEventListener('click', function() {
+                const startDate = document.getElementById('start-date').value;
+                const endDate = document.getElementById('end-date').value;
+                const preferences = document.getElementById('preferences').value;
+                const selectedDestinations = Array.from(document.querySelectorAll('input[name="destination"]:checked'))
+                    .map(checkbox => {
+                        const label = checkbox.nextElementSibling;
+                        return {
+                            location: label.querySelector('strong').textContent,
+                            highlights: label.querySelector('.checkbox-highlights').textContent.replace('Highlights: ', '')
+                        };
+                    });
+
+                if (!startDate || !endDate) {
+                    alert('Please select both start and end dates');
+                    return;
+                }
+
+                if (selectedDestinations.length === 0) {
+                    alert('Please select at least one destination');
+                    return;
+                }
+
+                // Store the planning data in session storage
+                const planningData = {
+                    startDate,
+                    endDate,
+                    preferences,
+                    selectedDestinations
+                };
+                sessionStorage.setItem('planningData', JSON.stringify(planningData));
+
+                // Redirect to itinerary page
+                window.location.href = '/itinerary';
+            });
+        }
+    </script>
+</body>
+</html> 

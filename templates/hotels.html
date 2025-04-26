@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Available Hotels</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding-top: 2rem;
+        }
+        .hotel-card {
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            transition: transform 0.3s ease;
+        }
+        .hotel-card:hover {
+            transform: translateY(-5px);
+        }
+        .back-button {
+            margin-bottom: 2rem;
+        }
+        .location-section {
+            margin-bottom: 3rem;
+        }
+        .location-header {
+            color: #0d6efd;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #0d6efd;
+        }
+        .hotel-rating {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        .hotel-price {
+            color: #198754;
+            font-weight: bold;
+        }
+        #loading {
+            text-align: center;
+            padding: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <button class="btn btn-outline-primary back-button" onclick="window.history.back()">
+            ← Back to Itinerary
+        </button>
+        
+        <div id="loading" class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Searching for available hotels...</p>
+        </div>
+
+        <div id="hotels-content" style="display: none;">
+            <h2 class="text-center mb-4">Available Hotels</h2>
+            <div id="hotels-container"></div>
+        </div>
+
+        <div id="error" class="alert alert-danger" style="display: none;"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const loading = document.getElementById('loading');
+            const hotelsContent = document.getElementById('hotels-content');
+            const error = document.getElementById('error');
+            const hotelsContainer = document.getElementById('hotels-container');
+
+            const selectedLocations = JSON.parse(sessionStorage.getItem('selectedLocations'));
+            const planningData = JSON.parse(sessionStorage.getItem('planningData'));
+            
+            if (!selectedLocations || !planningData) {
+                loading.style.display = 'none';
+                error.style.display = 'block';
+                error.textContent = 'No location data found. Please go back and select your preferred locations.';
+                return;
+            }
+
+            // Call the API to search hotels
+            fetch('/api/search-hotels', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    locations: selectedLocations,
+                    check_in: planningData.startDate,
+                    check_out: planningData.endDate,
+                    budget: 5000 // Default budget, can be made configurable
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                loading.style.display = 'none';
+                if (data.status === 'success') {
+                    hotelsContent.style.display = 'block';
+                    displayHotels(data.results);
+                } else {
+                    error.style.display = 'block';
+                    error.textContent = 'Error searching hotels: ' + data.message;
+                }
+            })
+            .catch(err => {
+                loading.style.display = 'none';
+                error.style.display = 'block';
+                error.textContent = 'Error searching hotels: ' + err.message;
+            });
+
+            function displayHotels(results) {
+                for (const [location, hotels] of Object.entries(results)) {
+                    const locationSection = document.createElement('div');
+                    locationSection.className = 'location-section';
+                    locationSection.innerHTML = `
+                        <h3 class="location-header">${location}</h3>
+                        <div class="row">
+                            ${hotels.map(hotel => `
+                                <div class="col-md-6">
+                                    <div class="card hotel-card">
+                                        <div class="card-body">
+                                            <h5 class="card-title">${hotel.name}</h5>
+                                            <p class="card-text">
+                                                <strong>Price:</strong> <span class="hotel-price">${hotel.currency} ${hotel.price}</span><br>
+                                                <strong>Rating:</strong> <span class="hotel-rating">${hotel.rating || 'N/A'}</span><br>
+                                                <strong>Platform:</strong> ${hotel.platform}<br>
+                                                <strong>Address:</strong> ${hotel.address}<br>
+                                                <strong>Available Rooms:</strong> ${hotel.available_rooms}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                    hotelsContainer.appendChild(locationSection);
+                }
+            }
+        });
+    </script>
+</body>
+</html> 
